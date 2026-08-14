@@ -1,33 +1,33 @@
 package com.example.gamingtweaks;
 
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.os.Handler;
-import android.os.Looper;
 import android.webkit.JavascriptInterface;
-import android.widget.Toast;
 import rikka.shizuku.Shizuku;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 public class ShizukuBridge {
-    private final Context context;
-    public ShizukuBridge(Context context) { this.context = context; }
 
     @JavascriptInterface
-    public void runTweak(String command) {
-        if (!Shizuku.pingBinder()) { showToast("Shizuku belum berjalan!"); return; }
-        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-            Shizuku.requestPermission(0);
-            showToast("Berikan izin Shizuku.");
-            return;
+    public String execShell(String command) {
+        if (!Shizuku.pingBinder()) {
+            return "Error: Shizuku service is not running!";
         }
-        new Thread(() -> {
-            try {
-                Process p = Shizuku.newProcess(new String[]{"sh", "-c", command}, null, null);
-                if (p.waitFor() == 0) showToast("Tweak Berhasil!");
-            } catch (Exception e) { showToast("Gagal: " + e.getMessage()); }
-        }).start();
-    }
-    private void showToast(String m) {
-        new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(context, m, Toast.LENGTH_SHORT).show());
+
+        try {
+            // Menggunakan metode perizinan & eksekusi proses resmi Shizuku
+            Process process = Shizuku.newProcess(new String[]{"sh", "-c", command}, null, null);
+            
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            StringBuilder output = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+
+            process.waitFor();
+            return output.toString().trim();
+        } catch (Exception e) {
+            return "Error executing command: " + e.getMessage();
+        }
     }
 }
